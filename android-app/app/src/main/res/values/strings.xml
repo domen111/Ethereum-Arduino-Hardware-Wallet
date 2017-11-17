@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">ether arduino</string>
+    <string name="btn1">get balance</string>
+    <string name="btn2">transection</string>
+    <string name="btn3">send</string>
+    <string name="label">address:</string>
+    <string name="def_address">0x7cB57B5A97eAbe94205C07890BE4c1aD31E486A8</string>
+    <string name="res_wei">0 Wei</string>
+    <string name="res_ether">0.0 Ether</string>
+    <string name="sendbtn">Send TX</string>
+
+    <string name="l1">Address:</string>
+    <string name="l2">Value:</string>
+    <string name="l3">GasPrice:</string>
+
+    <string name="zero">0.0</string>
+</resources>
