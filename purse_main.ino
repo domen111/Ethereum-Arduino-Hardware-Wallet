@@ -71,6 +71,7 @@ void ReadStartSignal()
   return;
 }
 
+
 void InputPasswd()
 {
   byte pwd[16] = { 1,2,3 };
@@ -88,14 +89,32 @@ void InputPasswd()
     for(int i=0; i<=NUM_KEY_MAX; i++)
     {
       int x = digitalRead(key_to_pin[i]);
-      char c = '0'+i;
-      Serial.write( &c, 1 );
-      digitalWrite(13,HIGH);
-      delay(20);
-      s[s_len++] = i;
-      break;
+      if( keyStat[i] != x )
+      {
+        keyStat[i] = x;
+        if(x==1)
+        {
+          char c = '0'+i;
+          Serial.write( &c, 1 );
+          analogWrite(13,250);
+          QuickFlickFor(100);
+        }
+        else
+          delay(100);
+      }
     }
     digitalWrite(13,LOW);
+  }
+}
+
+
+void QuickFlickFor(int t)
+{
+  for(int i=1; i<t; i++)
+  {
+    digitalWrite(13,HIGH);
+    digitalWrite(13,LOW);
+    delay(1);
   }
 }
 
