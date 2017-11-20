@@ -38,7 +38,7 @@ void setup()
   Serial.begin(9600);
   pinMode( LED_BUILTIN, OUTPUT );
   for(int i=NUM_KEY_MIN; i<=NUM_KEY_MAX; i++)
-    pinMode( pin_of_key[i], INPUT );
+    pinMode( key_to_pin[i], INPUT );
 }
 
 void loop()
@@ -48,7 +48,7 @@ void loop()
   {
     digitalWrite( LED_BUILTIN, HIGH );
     delay(100);
-    digitalWrite( LED_BUILTIN, LOW )
+    digitalWrite( LED_BUILTIN, LOW );
     delay(100);
   }
   InputPasswd();
@@ -67,6 +67,7 @@ void ReadStartSignal()
     if(c == s[i])
       i++;
   }
+  Serial.write("ok");
   return;
 }
 
@@ -78,36 +79,21 @@ void InputPasswd()
   byte s_len = 0;
   int keyStat[16];
   
-  key[0] = KEY_FREE;
+  keyStat[0] = 0;
   for(int i=NUM_KEY_MIN; i<=NUM_KEY_MAX; i++)
-    key[i] = KEY_FREE;
+    keyStat[i] = 0;
   
   while(true)
   {
-    for(int i=0; i<=11; i++)
+    for(int i=0; i<=NUM_KEY_MAX; i++)
     {
-      int x = digitalRead(i);
-      if(x>0)
-      {
-        if( (keyStat[i] & KEY_UP) && key[i] -  )
-      }
-      else
-      {
-        
-      }
-    }
-    
-    for(int i=1; i<=7; i++)
-    {
-      if(key[i]==KEY_DOWN)
-      {
-        Serial.write( num+i, 1 );
-        digitalWrite(13,HIGH);
-        delay(20);
-        s[s_len++] = num[i]-'0';
-        anykey = true;
-        break;
-      }
+      int x = digitalRead(key_to_pin[i]);
+      char c = '0'+i;
+      Serial.write( &c, 1 );
+      digitalWrite(13,HIGH);
+      delay(20);
+      s[s_len++] = i;
+      break;
     }
     digitalWrite(13,LOW);
   }
