@@ -25,7 +25,6 @@ public class Balance extends AppCompatActivity {
 
     public void send(View v)
     {
-        Log.d("MYDEBUG", "Hi");
         Web3j web3 = Web3jFactory.build(new HttpService("https://ropsten.infura.io/"));
         try {
             EditText e = this.findViewById(R.id.address);
@@ -44,8 +43,8 @@ public class Balance extends AppCompatActivity {
         final TextView res_wei = this.findViewById(R.id.res_wei);
         final TextView res_ether = this.findViewById(R.id.res_ether);
 
-        //res_wei.setText(res + " Wei");
+        res_wei.setText(res + " Wei");
 
-        //res_ether.setText(res.divide(new BigInteger("1000000000000000000")).toString());
+        res_ether.setText(res.divide(new BigInteger("1000000000000000000")).toString() + " Ether");
     }
 }
