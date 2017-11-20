@@ -10,32 +10,36 @@
 #define D11 11
 #define D12 12
 
+#define KEY_TRANS_TIME 100
+
 #define NUM_KEY_MIN 1
 #define NUM_KEY_MAX 7
 
-#define KEY_STAT_FREE  0x0000
-#define KEY_STAT_HOLD  0x0001
-#define KEY_STAT_DOWN  0x1000
-#define KEY_STAT_UP    0x2000
-
-#define KEY_TRANS_TIME 50
-
 #define KEY_ENTER 0
-#define KEY_
+
+#define LED_G 6
+#define LED_R 7
 
 
-int key_to_pin [] = { 4,3,2,5, 9,11,10,8 };
+int key_to_pin [] = { 4,3,2,5, 10,9,11,8 };
 char pin_to_key[] = { 0,0,
                       2,1,0,3,   // D2 ~ D5
                       0,0,
-                      7,4,6,5 }; // D8 ~ D11
+                      7,5,4,6 }; // D8 ~ D11
+
+const char pwd[] = "1234567";
 
 void ReadStartSignal();
-void InputPasswd();
+bool InputPasswd();
+void Flick(int pin_id, int repeat, int t);
+void Flick(int pin_id, int repeat, int t1, int t2);
 
 void setup()
 {
   Serial.begin(9600);
+  
+  pinMode( LED_R, OUTPUT );
+  pinMode( LED_G, OUTPUT );
   pinMode( LED_BUILTIN, OUTPUT );
   for(int i=NUM_KEY_MIN; i<=NUM_KEY_MAX; i++)
     pinMode( key_to_pin[i], INPUT );
@@ -51,9 +55,25 @@ void loop()
     digitalWrite( LED_BUILTIN, LOW );
     delay(100);
   }
-  InputPasswd();
+  
+  while(true)
+  {
+    if( InputPasswd() )
+    {
+      digitalWrite(LED_G, HIGH);
+      // Get Transaction Data
+      // Sign Transaction 
+      // Return Signed Data
+      Flick( LED_G, 2, 250 );
+    }
+    else
+    {
+      digitalWrite(LED_R, HIGH);
+      delay(1000);
+      digitalWrite(LED_R, LOW);
+    }
+  }
 }
-
 
 void ReadStartSignal()
 {
@@ -61,7 +81,7 @@ void ReadStartSignal()
   char s[] = "ooo";
   while(i<3)
   {
-    while(!Serial.available()<0)
+    while( Serial.available() < 0 )
       ;
     int c = Serial.read();
     if(c == s[i])
@@ -72,18 +92,17 @@ void ReadStartSignal()
 }
 
 
-void InputPasswd()
+bool InputPasswd()
 {
-  byte pwd[16] = { 1,2,3 };
-  byte pwdlen = 3;
-  byte s[16];
-  byte s_len = 0;
   int keyStat[16];
+  char in_str[20];
+  byte in_len = 0;
   
   keyStat[0] = 0;
   for(int i=NUM_KEY_MIN; i<=NUM_KEY_MAX; i++)
     keyStat[i] = 0;
-  
+
+  int match_len = 0;
   while(true)
   {
     for(int i=0; i<=NUM_KEY_MAX; i++)
@@ -92,29 +111,53 @@ void InputPasswd()
       if( keyStat[i] != x )
       {
         keyStat[i] = x;
-        if(x==1)
+        if(x==1)  // Key Down
         {
+          if(in_len==20)
+          {
+            in_len = 0;
+            return false;
+          }
+          if( i==0 )  // Enter
+          {
+            in_str[in_len] = '\0';
+            return strcmp(in_str,pwd)==0;
+          }
           char c = '0'+i;
           Serial.write( &c, 1 );
-          analogWrite(13,250);
-          QuickFlickFor(100);
+          in_str[in_len++] = c;
+          Flick( 13, KEY_TRANS_TIME/2, 1, 3 );
         }
-        else
-          delay(100);
+        else  // Key Up
+        {
+          delay( KEY_TRANS_TIME );
+        }
       }
     }
-    digitalWrite(13,LOW);
   }
 }
 
-
-void QuickFlickFor(int t)
+void Flick(int pin_id, int repeat, int t)
 {
-  for(int i=1; i<t; i++)
+  digitalWrite(pin_id, LOW);
+  for(int i=0; i<repeat; i++)
   {
-    digitalWrite(13,HIGH);
-    digitalWrite(13,LOW);
-    delay(1);
+    delay(t);
+    digitalWrite(pin_id, HIGH);
+    delay(t);
+    digitalWrite(pin_id, LOW);
+  }
+}
+
+void Flick(int pin_id, int repeat, int t1, int t2)
+{
+  digitalWrite(pin_id, LOW);
+  for(int i=0; i<repeat; i++)
+  {
+    delay(t2);
+    digitalWrite(pin_id, HIGH);
+    delay(t1);
+    digitalWrite(pin_id, LOW);
   }
 }
 
