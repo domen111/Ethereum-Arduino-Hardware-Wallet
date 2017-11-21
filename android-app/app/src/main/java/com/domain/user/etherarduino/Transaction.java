@@ -13,11 +13,15 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.felhr.usbserial.UsbSerialDevice;
+import com.felhr.usbserial.UsbSerialInterface;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.web3j.crypto.Hash;
@@ -45,139 +49,47 @@ public class Transaction extends AppCompatActivity {
     Web3j web3 = Web3jFactory.build(new HttpService("https://ropsten.infura.io/"));
     RawTransaction rawTransaction;
 
-    UsbManager mUsbManager;
-    UsbDevice device;
     private static final String ACTION_USB_PERMISSION = "com.domain.user.etherarduino.USB_PERMISSION";
-    UsbInterface intf;
-    UsbEndpoint endpoint;
+
+    UsbDevice device;
     UsbDeviceConnection connection;
-//    final int interfaceNo = 0, endpointNo_in = 1, endpointNo_out = 0;
-    final int interfaceNo = 1, endpointNo_in = 0, endpointNo_out = 1;
-
-    private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (ACTION_USB_PERMISSION.equals(action)) {
-                synchronized (this) {
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if (device != null) {
-                            // Set up device communication
-                            // It should be done in another to prevent blocking of UI
-                            intf = device.getInterface(interfaceNo);
-                            connection = mUsbManager.openDevice(device);
-                            new Thread(new Runnable() {
-                                public void run() {
-                                    sendToArduino();
-                                }
-                            }).start();
-                        }
-                    } else {
-                        Log.d("ERROR", "permission denied for device " + device);
-                    }
-                }
-            }
-        }
-    };
-
+    UsbManager usbManager;
+    UsbSerialDevice serialPort;
+    PendingIntent pendingIntent;
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_transection);
+
+        pendingIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        registerReceiver(broadcastReceiver, filter);
     }
 
     public void SendTransaction(View view) {
-        mUsbManager = (UsbManager) this.getSystemService(Context.USB_SERVICE);
-        HashMap<String, UsbDevice> deviceList = mUsbManager.getDeviceList();
-        if (!deviceList.isEmpty()) {
-            device = deviceList.get(deviceList.keySet().toArray()[0]);
-            Log.d("MYDEBUG", "Device vendor id: " + device.getVendorId());
-        }
-        if (device == null || device.getVendorId() != 0x403 && device.getVendorId() != 0x2341) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Error")
-                    .setMessage("No arduino connected.")
-                    .show();
-            return;
-        }
-        try {
-            // Request for permission
-            PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-            this.registerReceiver(mUsbReceiver, filter);
-            mUsbManager.requestPermission(device, mPermissionIntent);
-        } catch (Exception ex) {
-            Log.d("ERROR", ex.getClass().getName() + " : " + ex.getMessage());
-        }
-    }
+        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 
-    void sendToArduino()
-    {
-        // Show all interfaces & endpoints
-//        Log.d("MYDEBUG", "Device Name: " + device.getProductName());
-//        Log.d("MYDEBUG", "interface count: " + device.getInterfaceCount());
-//        for (int i = 0; i < device.getInterfaceCount(); i++) {
-//            UsbInterface intf = device.getInterface(i);
-//            Log.d("MYDEBUG", "interface #" + i + ": " + intf.getName());
-//            for (int j = 0; j < intf.getEndpointCount(); j++) {
-//                UsbEndpoint endpoint = intf.getEndpoint(j);
-//                Log.d("MYDEBUG", "endpoint #" + j + " describeContents: " + endpoint.describeContents());
-//                Log.d("MYDEBUG", "endpoint #" + j + " getType: " + endpoint.getType());
-//                Log.d("MYDEBUG", "endpoint #" + j + " getDirection: " + endpoint.getDirection());
-//                Log.d("MYDEBUG", "endpoint #" + j + " toString: " + endpoint.toString());
-//            }
-//        }
-        endpoint = intf.getEndpoint(endpointNo_in);
-        Log.d("MYDEBUG", "endpoint type: " + endpoint.getType());
+        HashMap<String, UsbDevice> usbDevices = usbManager.getDeviceList();
+        if (!usbDevices.isEmpty()) {
+            boolean keep = true;
+            for (Map.Entry<String, UsbDevice> entry : usbDevices.entrySet()) {
+                device = entry.getValue();
+                int deviceVID = device.getVendorId();
 
-        // Send TX data to arduino
-        byte[] data = prepareTransaction("0xB0Ae540978bED7fF6e6C6658F38B6b206b98E65D");
-        connection.claimInterface(intf, true);
-        connection.bulkTransfer(endpoint, data, data.length, 3);
-
-        Log.d("MYDEBUG", "done sending message");
-
-        receiveFromArduino();
-    }
-
-    void receiveFromArduino() {
-        endpoint = intf.getEndpoint(endpointNo_out);
-        for(int j=0;j<1000000;j++) {
-//            Log.d("MYDEBUG", "endpoint type: " + endpoint.getType());
-
-            // Send TX data to arduino
-            byte[] data = new byte[1];
-            connection.claimInterface(intf, true);
-            connection.bulkTransfer(endpoint, data, data.length, 3);
-
-            String s = "";
-            for (int i = 0; i < data.length; i++)
-                s += data[i];
-            if(data[0]!=0)
-                Log.d("MYDEBUG", "Received: " + (char)data[0]);
-//            Log.d("MYDEBUG", "Received: " + s);
-            try {
-                TimeUnit.MICROSECONDS.sleep(1);
-            }catch (Exception e){
-                Log.d("MYDEBUG", e.toString());
+                if (deviceVID == 1027 || deviceVID == 9025) { //Arduino Vendor ID
+                    usbManager.requestPermission(device, pendingIntent);
+                    keep = false;
+                } else {
+                    connection = null;
+                    device = null;
+                }
+                if (!keep)
+                    break;
             }
         }
-//        try {
-//            byte v = data[0];
-//            byte[] r = Arrays.copyOfRange(data, 1, 33);
-//            byte[] s = Arrays.copyOfRange(data, 33, 65);
-//            Sign.SignatureData signatureData = new Sign.SignatureData(v, r, s);
-//            List<RlpType> values = asRlpValues(rawTransaction, signatureData);
-//            RlpList rlpList = new RlpList(values);
-//            byte[] encodedTransaction = RlpEncoder.encode(rlpList);
-//            String hexValue = Numeric.toHexString(encodedTransaction);
-//            EthSendTransaction ethSendTransaction = web3.ethSendRawTransaction(hexValue).sendAsync().get();
-//            String transactionHash = ethSendTransaction.getTransactionHash();
-//            Log.d("MYDEBUG", transactionHash);
-//            final TextView TXHash_tv = this.findViewById(R.id.TransactionHash);
-//            TXHash_tv.setText(transactionHash);
-//        } catch (Exception e) {
-//            Log.d("MYDEBUG", e.toString());
-//        }
+        serialPort.write("ooo".getBytes());
+
     }
 
     byte[] prepareTransaction(String addr)
@@ -212,6 +124,55 @@ public class Transaction extends AppCompatActivity {
         }
 
     }
+    private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(ACTION_USB_PERMISSION)) {
+                boolean granted = intent.getExtras().getBoolean(UsbManager.EXTRA_PERMISSION_GRANTED);
+                if (granted) {
+                    connection = usbManager.openDevice(device);
+                    serialPort = UsbSerialDevice.createUsbSerialDevice(device, connection);
+                    if (serialPort != null) {
+                        if (serialPort.open()) {
+                            serialPort.setBaudRate(9600);
+                            serialPort.setDataBits(UsbSerialInterface.DATA_BITS_8);
+                            serialPort.setStopBits(UsbSerialInterface.STOP_BITS_1);
+                            serialPort.setParity(UsbSerialInterface.PARITY_NONE);
+                            serialPort.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
+                            serialPort.read(mCallback);
+                        } else {
+                            Log.d("SERIAL", "PORT NOT OPEN");
+                        }
+                    } else {
+                        Log.d("SERIAL", "PORT IS NULL");
+                    }
+                } else {
+                    Log.d("SERIAL", "PERMISSION NOT GRANTED");
+                }
+            } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
+                //onClickStart(startButton);
+            } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
+                //can add something to close the connection
+            }
+        };
+    };
+    private UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
+        //Defining a Callback which triggers whenever data is read.
+        @Override
+        public void onReceivedData(byte[] arg0) {
+            try {
+                if ((int)(arg0[0] & 0xFF) == 245) {
+                    
+                }
+                for (int i = 0; i < arg0.length; i++) {
+                    Log.d("MYDEBUG", (arg0[i] & 0xFF) + "");
+                }
+                //Log.d("MYDEBUG", Arrays.toString(arg0));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
 
     static List<RlpType> asRlpValues(
             RawTransaction rawTransaction, Sign.SignatureData signatureData) {

@@ -26,5 +26,6 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
-    compile ('org.web3j:core:3.1.1-android')
+    compile 'org.web3j:core:3.1.1-android'
+    compile 'com.github.felHR85:UsbSerial:4.5'
 }
