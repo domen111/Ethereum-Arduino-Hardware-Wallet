@@ -5,8 +5,8 @@
     <string name="btn3">Get Balance</string>
     <string name="label">address:</string>
     <string name="def_address">0xB0Ae540978bED7fF6e6C6658F38B6b206b98E65D</string>
-    <!--<string name="res_wei">0 Wei</string>-->
-    <!--<string name="res_ether">0.0 Ether</string>-->
+    <string name="res_wei">0 Wei</string>
+    <string name="res_ether">0.0 Ether</string>
     <string name="sendbtn">Send TX</string>
 
     <string name="l1">Address:</string>
