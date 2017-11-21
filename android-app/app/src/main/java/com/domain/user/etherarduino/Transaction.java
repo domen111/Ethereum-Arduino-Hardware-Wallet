@@ -18,10 +18,12 @@ import com.felhr.usbserial.UsbSerialInterface;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 
 import org.web3j.crypto.Hash;
@@ -124,6 +126,37 @@ public class Transaction extends AppCompatActivity {
         }
 
     }
+
+    private boolean mode = false;
+
+    private void arduino_sign()
+    {
+        EditText e = this.findViewById(R.id.address);
+        serialPort.write(this.prepareTransaction(e.getText().toString()));
+        mode = true;
+    }
+
+    private void putOnChain(byte[] data)
+    {
+        try {
+            byte v = data[0];
+            byte[] r = Arrays.copyOfRange(data, 1, 33);
+            byte[] s = Arrays.copyOfRange(data, 33, 65);
+            Sign.SignatureData signatureData = new Sign.SignatureData(v, r, s);
+            List<RlpType> values = asRlpValues(rawTransaction, signatureData);
+            RlpList rlpList = new RlpList(values);
+            byte[] encodedTransaction = RlpEncoder.encode(rlpList);
+            String hexValue = Numeric.toHexString(encodedTransaction);
+            EthSendTransaction ethSendTransaction = web3.ethSendRawTransaction(hexValue).sendAsync().get();
+            String transactionHash = ethSendTransaction.getTransactionHash();
+            Log.d("MYDEBUG", transactionHash);
+            final TextView TXHash_tv = this.findViewById(R.id.TransactionHash);
+            TXHash_tv.setText(transactionHash);
+        } catch (Exception e) {
+            Log.d("MYDEBUG", e.toString());
+        }
+    }
+
     private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -158,18 +191,52 @@ public class Transaction extends AppCompatActivity {
     };
     private UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         //Defining a Callback which triggers whenever data is read.
+        ArrayList<Byte> buffer = new ArrayList<>();
+
         @Override
-        public void onReceivedData(byte[] arg0) {
-            try {
-                if ((int)(arg0[0] & 0xFF) == 245) {
-                    
+        public void onReceivedData(byte[] arg0)
+        {
+            if(mode) mode_sign(arg0);
+            else mode_confirm(arg0);
+        }
+
+        private void mode_confirm(byte[] arg0)
+        {
+            for( byte b : arg0 )
+            {
+                buffer.add(b);
+            }
+
+            if( buffer.size() >= 3 )
+            {
+                if( buffer.get(0) == 'o' && buffer.get(1) == 'o' && buffer.get(2) == 'o' )
+                {
+                    Transaction.this.arduino_sign();
                 }
-                for (int i = 0; i < arg0.length; i++) {
-                    Log.d("MYDEBUG", (arg0[i] & 0xFF) + "");
+                else
+                {
+                    buffer.remove(0);
                 }
-                //Log.d("MYDEBUG", Arrays.toString(arg0));
-            } catch (Exception e) {
-                e.printStackTrace();
+            }
+        }
+
+        private void mode_sign(byte[] arg0)
+        {
+            buffer.clear();
+
+            for( byte b : arg0 )
+            {
+                buffer.add(b);
+            }
+
+            if( buffer.size() >= 65 )
+            {
+                byte[] b = new byte[65];
+
+                for( int i = 0; i < 65; i++ )
+                    b[i] = buffer.get(i);
+
+                Transaction.this.putOnChain(b);
             }
         }
     };
