@@ -6,6 +6,9 @@ import android.hardware.usb.UsbManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.hardware.usb.*;
+import android.text.Html;
+import android.text.Spanned;
+import android.text.method.LinkMovementMethod;
 import android.view.View;
 import android.app.PendingIntent;
 import android.content.*;
@@ -52,7 +55,6 @@ public class Transaction extends AppCompatActivity {
     RawTransaction rawTransaction;
 
     private static final String ACTION_USB_PERMISSION = "com.domain.user.etherarduino.USB_PERMISSION";
-
     UsbDevice device;
     UsbDeviceConnection connection;
     UsbManager usbManager;
@@ -67,31 +69,27 @@ public class Transaction extends AppCompatActivity {
         pendingIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         registerReceiver(broadcastReceiver, filter);
-    }
 
-    public void SendTransaction(View view) {
         usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 
         HashMap<String, UsbDevice> usbDevices = usbManager.getDeviceList();
         if (!usbDevices.isEmpty()) {
-            boolean keep = true;
             for (Map.Entry<String, UsbDevice> entry : usbDevices.entrySet()) {
                 device = entry.getValue();
                 int deviceVID = device.getVendorId();
-
                 if (deviceVID == 1027 || deviceVID == 9025) { //Arduino Vendor ID
                     usbManager.requestPermission(device, pendingIntent);
-                    keep = false;
+                    break;
                 } else {
                     connection = null;
                     device = null;
                 }
-                if (!keep)
-                    break;
             }
         }
-        serialPort.write("ooo".getBytes());
+    }
 
+    public void SendTransaction(View view) {
+        serialPort.write("ooo".getBytes());
     }
 
     byte[] prepareTransaction(String addr)
@@ -143,17 +141,26 @@ public class Transaction extends AppCompatActivity {
             byte[] r = Arrays.copyOfRange(data, 1, 33);
             byte[] s = Arrays.copyOfRange(data, 33, 65);
             Sign.SignatureData signatureData = new Sign.SignatureData(v, r, s);
+
             List<RlpType> values = asRlpValues(rawTransaction, signatureData);
             RlpList rlpList = new RlpList(values);
             byte[] encodedTransaction = RlpEncoder.encode(rlpList);
             String hexValue = Numeric.toHexString(encodedTransaction);
+            Log.d("MYDEBUG", hexValue);
             EthSendTransaction ethSendTransaction = web3.ethSendRawTransaction(hexValue).sendAsync().get();
-            String transactionHash = ethSendTransaction.getTransactionHash();
+            final String transactionHash = ethSendTransaction.getTransactionHash();
             Log.d("MYDEBUG", transactionHash);
             final TextView TXHash_tv = this.findViewById(R.id.TransactionHash);
-            TXHash_tv.setText(transactionHash);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Spanned sp = Html.fromHtml("<a href =\"https://ropsten.etherscan.io/tx/" + transactionHash + "\">" + transactionHash + "</a>");
+                    TXHash_tv.setText(sp);
+                    TXHash_tv.setMovementMethod(LinkMovementMethod.getInstance());
+                }
+            });
         } catch (Exception e) {
-            Log.d("MYDEBUG", e.toString());
+            Log.d("MYDEBUG", e.getClass().getName() + " : " + e.getMessage());
         }
     }
 
@@ -183,9 +190,9 @@ public class Transaction extends AppCompatActivity {
                     Log.d("SERIAL", "PERMISSION NOT GRANTED");
                 }
             } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
-                //onClickStart(startButton);
+
             } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
-                //can add something to close the connection
+
             }
         };
     };
@@ -196,6 +203,7 @@ public class Transaction extends AppCompatActivity {
         @Override
         public void onReceivedData(byte[] arg0)
         {
+            Log.d("MYDEBUG", Arrays.toString(arg0));
             if(mode) mode_sign(arg0);
             else mode_confirm(arg0);
         }
@@ -207,10 +215,13 @@ public class Transaction extends AppCompatActivity {
                 buffer.add(b);
             }
 
-            if( buffer.size() >= 3 )
+            while( buffer.size() >= 3 )
             {
+                Log.d("MYDEBUG", "Buffer " +Arrays.toString(buffer.toArray()));
                 if( buffer.get(0) == 'o' && buffer.get(1) == 'o' && buffer.get(2) == 'o' )
                 {
+                    Log.d("MYDEBUG", "Password correct");
+                    buffer.clear();
                     Transaction.this.arduino_sign();
                 }
                 else
@@ -222,20 +233,19 @@ public class Transaction extends AppCompatActivity {
 
         private void mode_sign(byte[] arg0)
         {
-            buffer.clear();
 
             for( byte b : arg0 )
             {
                 buffer.add(b);
             }
-
+            Log.d("MYDEBUG", "Buffer size " + buffer.size());
             if( buffer.size() >= 65 )
             {
                 byte[] b = new byte[65];
 
                 for( int i = 0; i < 65; i++ )
                     b[i] = buffer.get(i);
-
+                Log.d("MYDEBUG", "Received signature");
                 Transaction.this.putOnChain(b);
             }
         }
@@ -270,7 +280,6 @@ public class Transaction extends AppCompatActivity {
             result.add(RlpString.create(Bytes.trimLeadingZeroes(signatureData.getR())));
             result.add(RlpString.create(Bytes.trimLeadingZeroes(signatureData.getS())));
         }
-
         return result;
     }
 }
