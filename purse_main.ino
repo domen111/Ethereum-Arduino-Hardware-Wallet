@@ -20,6 +20,8 @@
 #define LED_G 6
 #define LED_R 7
 
+#include "uECC.h"
+#include <string.h>
 
 int key_to_pin [] = { 4,3,2,5, 10,9,11,8 };
 char pin_to_key[] = { 0,0,
@@ -60,10 +62,24 @@ void loop()
   {
     if( InputPasswd() )
     {
+      Serial.write("ooo");
       digitalWrite(LED_G, HIGH);
       // Get Transaction Data
+      uint8_t private_key[32], message_hash[32], signature[65];
+      for (int i = 0; i < 32; i++)
+      {
+        while (Serial.available() <= 0)
+          ;
+        message_hash[i] = Serial.read();
+      }
+      memcpy(private_key, "\x2f\x65\x6a\x66\x54\x68\x5c\x19\x11\xc0\xed\x23\xba\xb2\xbd\x2a\x8b\x61\xf6\xd5\x92\x37\xc9\x5f\x74\xe8\x82\xac\x08\x41\xfd\x8d", 32);
+
       // Sign Transaction 
+      int ret = rfc6979sha256p256sign(private_key, message_hash, signature + 1);
+      signature[0] = (ret & 1) + 27;
+
       // Return Signed Data
+      Serial.write(signature, 65);
       Flick( LED_G, 2, 250 );
     }
     else
@@ -81,7 +97,7 @@ void ReadStartSignal()
   char s[] = "ooo";
   while(i<3)
   {
-    while( Serial.available() < 0 )
+    while( Serial.available() <= 0 )
       ;
     int c = Serial.read();
     if(c == s[i])
