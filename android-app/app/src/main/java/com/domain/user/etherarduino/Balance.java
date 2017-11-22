@@ -13,6 +13,7 @@ import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.EthGetBalance;
 import org.web3j.protocol.http.HttpService;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class Balance extends AppCompatActivity {
@@ -45,6 +46,8 @@ public class Balance extends AppCompatActivity {
 
         res_wei.setText(res + " Wei");
 
-        res_ether.setText(res.divide(new BigInteger("1000000000000000000")).toString() + " Ether");
+        BigDecimal b1 = new BigDecimal(res);
+        BigDecimal b2 = new BigDecimal("1000000000000000000");
+        res_ether.setText(b1.divide(b2).toString() + " Ether");
     }
 }
