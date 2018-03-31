@@ -119,7 +119,7 @@ bool InputPasswd()
 {
     char str[128];
     keypadRead(str, 128);
-    return strcmp(str, pwd);
+    return strcmp(str, pwd) == 0;
 }
 
 void Flick(int pin_id, int repeat, int t)
