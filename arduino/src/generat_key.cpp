@@ -6,6 +6,8 @@
 
 #include <Keypad.h>
 
+#include <EEPROM.h>
+
 #include "encryption.h"
 #include "myKeypad.h"
 #include "lcd.h"
@@ -55,6 +57,11 @@ void generateKey(uint8_t prikey_temp[32], uint8_t prikey_cipher[32]) {
   clean(prikey_temp, 32);
   clean(password);
   clean(key);
+
+  // Write EEPROM
+  for (int i = 0; i < 32; ++i) {
+    EEPROM.write(48 + i, prikey_cipher[i]);
+  }
 
   delay(500);
   Serial.println("done");
