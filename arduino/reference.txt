@@ -1,0 +1,6 @@
+https://swf.com.tw/?p=917
+https://swf.com.tw/?p=924
+https://bitbucket.org/fmalpartida/new-liquidcrystal/overview
+
+PRNG
+https://rweather.github.io/arduinolibs/crypto_rng.html
