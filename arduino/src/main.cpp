@@ -2,6 +2,7 @@
 #include "global.h"
 #include "generate_key.h"
 #include "myKeypad.h"
+#include "lcd.h"
 
 uint8_t prikey_cypher[32], prikey_temp[32];
 
@@ -9,6 +10,7 @@ uint8_t prikey_cypher[32], prikey_temp[32];
 void setup() {
   Serial.begin(9600);
   PRNGSetup();
+  initLCD();
 }
 
 void loop() {

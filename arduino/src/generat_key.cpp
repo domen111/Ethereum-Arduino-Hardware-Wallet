@@ -8,6 +8,7 @@
 
 #include "encryption.h"
 #include "myKeypad.h"
+#include "lcd.h"
 
 
 void readPassword(uint8_t key[]);
@@ -24,6 +25,7 @@ void PRNGLoop() {
 
 void generateKey(uint8_t prikey_temp[32], uint8_t prikey_cipher[32]) {
   Serial.println("Generating New Private Key...");
+  lcdprint("Gen key...");
 
   // Randomly Generate Key
   while (!RNG.available(32)) {
@@ -35,10 +37,9 @@ void generateKey(uint8_t prikey_temp[32], uint8_t prikey_cipher[32]) {
   // AES Encryption
   char password[64] = {};
   uint8_t key[32];
-  Serial.println("Please type the password.");
+  Serial.println("waiting for password");
+  lcdprint("password:");
   keypadRead(password, 64);
-  Serial.println(password);
-  Serial.println("<end>");
   for (int i = 0; i < 64; ++i) {
     if (isDigit(password[i])) {
       password[i] = password[i] - '0';
@@ -57,4 +58,5 @@ void generateKey(uint8_t prikey_temp[32], uint8_t prikey_cipher[32]) {
 
   delay(500);
   Serial.println("done");
+  lcdprint("done");
 }
